@@ -397,3 +397,254 @@ func main() {
 	}
 }
 ```
+
+### Advanced Features
+
+`SetCapacity(capacity int)`: Dynamically adjust the cache capacity.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRU(2)
+
+	cache.Set("a", "alpha")
+	cache.Set("b", "beta")
+
+	// Increase capacity to 3
+	cache.SetCapacity(3)
+	cache.Set("c", "gamma")
+
+	fmt.Println("Cache state after capacity increase:", cache.GetAll())
+	// Output: Cache state after capacity increase: map[a:alpha b:beta c:gamma]
+
+	// Decrease capacity back to 2, evicting the least recently used ('a')
+	cache.SetCapacity(2)
+	fmt.Println("Cache state after capacity decrease:", cache.GetAll())
+	// Output: Cache state after capacity decrease: map[b:beta c:gamma]
+}
+```
+
+`SetCallback(callback OnCallback)`: Set or update the eviction callback function.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/pnguyen215/cachify"
+)
+
+func evictionLogger(key string, value interface{}) {
+	fmt.Printf("Evicted: Key=%s, Value=%v\n", key, value)
+}
+
+func main() {
+	cache := cachify.NewLRU(2)
+
+	// Set a callback for evictions
+	cache.SetCallback(evictionLogger)
+
+	cache.Set("x", "X-ray")
+	cache.Set("y", "Yankee")
+	cache.Set("z", "Zulu")
+	// Output: Evicted: Key=x, Value=X-ray
+}
+```
+
+`SetExpiry(expiry time.Duration)`: Update the expiration time for all cache entries.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRUExpires(2, 5*time.Second)
+
+	cache.Set("a", "alpha")
+
+	// Update the expiration time to 10 seconds
+	cache.SetExpiry(10 * time.Second)
+
+	time.Sleep(2 * time.Second)
+	if val, ok := cache.Get("a"); ok {
+		fmt.Println("Value still exists:", val) // Output: Value still exists: alpha
+	}
+}
+```
+
+`GetStates()`: Get metadata for all entries.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRU(3)
+
+	cache.Set("x", "X-ray")
+	cache.Set("y", "Yankee")
+	cache.Set("z", "Zulu")
+
+	// Retrieve metadata for all entries
+	for _, state := range cache.GetStates() {
+		fmt.Printf("Key: %v, Value: %v, LastAccess: %v\n", state.Key(), state.Value(), state.AccessTime())
+	}
+}
+```
+
+`GetState()`: Get metadata for the least recently used item.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRU(3)
+
+	cache.Set("x", "X-ray")
+	cache.Set("y", "Yankee")
+
+	// Retrieve metadata for the least recently used item
+	if state, ok := cache.GetState(); ok {
+		fmt.Printf("LRU State: Key=%s, Value=%v, LastAccess=%v\n", state.Key(), state.Value(), state.AccessTime())
+	}
+}
+```
+
+`IsMostRecentlyUsed(key string)`: Check if a key is the most recently used.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRU(3)
+
+	cache.Set("a", "alpha")
+	cache.Set("b", "beta")
+	cache.Set("c", "gamma")
+
+	if cache.IsMostRecentlyUsed("c") {
+		fmt.Println("Key 'c' is the most recently used.") // Output: Key 'c' is the most recently used.
+	}
+}
+```
+
+`GetMostRecentlyUsed()`: Retrieve the most recently used item.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRU(3)
+
+	cache.Set("a", "alpha")
+	cache.Set("b", "beta")
+	cache.Set("c", "gamma")
+
+	// Retrieve the most recently used item
+	if state, ok := cache.GetMostRecentlyUsed(); ok {
+		fmt.Printf("Most Recently Used: Key=%s, Value=%v\n", state.Key(), state.Value())
+		// Output: Most Recently Used: Key=c, Value=gamma
+	}
+}
+```
+
+`ExpandExpiry(key string, expiry time.Duration)`: Extend the expiration time for a specific key.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRUExpires(2, 5*time.Second)
+
+	cache.Set("a", "alpha")
+
+	// Extend the expiration time by 10 seconds
+	cache.ExpandExpiry("a", 10*time.Second)
+
+	time.Sleep(2 * time.Second)
+	if val, ok := cache.Get("a"); ok {
+		fmt.Println("Value after extended expiry:", val) // Output: Value after extended expiry: alpha
+	}
+}
+```
+
+`PersistExpiry(key string)`: Retrieve the remaining time until expiration for a key.
+
+eg.
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+	"github.com/pnguyen215/cachify"
+)
+
+func main() {
+	cache := cachify.NewLRUExpires(2, 10*time.Second)
+
+	cache.Set("a", "alpha")
+
+	// Check remaining time for expiration
+	if remain, ok := cache.PersistExpiry("a"); ok {
+		fmt.Printf("Time until expiration: %v\n", remain)
+		// Output: Time until expiration: ~9s (actual value may vary slightly)
+	}
+}
+```
